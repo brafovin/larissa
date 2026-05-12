@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Snake mit Süßigkeiten 🍬</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+    h1 { margin: 0 0 8px; font-size: 1.4rem; }
+    .top {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .pill {
+      background: #1e293b;
+      border: 1px solid #334155;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-weight: 600;
+    }
+    canvas {
+      background: #1e293b;
+      border: 2px solid #334155;
+      border-radius: 8px;
+      touch-action: none;
+      max-width: 100%;
+      height: auto;
+    }
+    .controls {
+      margin-top: 12px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    button {
+      font: inherit;
+      cursor: pointer;
+      background: #2563eb;
+      border: 1px solid #2563eb;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 6px;
+    }
+    button:hover { background: #1d4ed8; }
+    .hint { color: #94a3b8; font-size: 0.9rem; margin-top: 8px; text-align: center; }
+    a { color: #60a5fa; }
+
+    .dpad {
+      display: grid;
+      grid-template-columns: repeat(3, 60px);
+      grid-template-rows: repeat(3, 60px);
+      gap: 6px;
+      margin-top: 16px;
+    }
+    .dpad button {
+      width: 60px; height: 60px;
+      font-size: 1.5rem;
+      background: #334155;
+      border-color: #475569;
+      padding: 0;
+    }
+    .dpad .up { grid-column: 2; grid-row: 1; }
+    .dpad .left { grid-column: 1; grid-row: 2; }
+    .dpad .right { grid-column: 3; grid-row: 2; }
+    .dpad .down { grid-column: 2; grid-row: 3; }
+
+    .overlay {
+      position: absolute;
+      background: rgba(15, 23, 42, 0.9);
+      color: #e2e8f0;
+      padding: 20px 30px;
+      border-radius: 8px;
+      border: 2px solid #334155;
+      text-align: center;
+      font-size: 1.2rem;
+      pointer-events: none;
+    }
+    .game-wrap { position: relative; display: inline-block; }
+  </style>
+</head>
+<body>
+  <h1>🐍 Snake mit Süßigkeiten 🍬</h1>
+  <div class="top">
+    <div class="pill">Punkte: <span id="score">0</span></div>
+    <div class="pill">Highscore: <span id="best">0</span></div>
+    <div class="pill">Tempo: <span id="speed">1</span></div>
+  </div>
+
+  <div class="game-wrap">
+    <canvas id="game" width="400" height="400"></canvas>
+    <div id="overlay" class="overlay">Drücke Leertaste oder „Start" zum Loslegen</div>
+  </div>
+
+  <div class="controls">
+    <button id="start">Start / Neustart</button>
+    <button id="pause">Pause</button>
+    <a href="/"><button type="button">Zurück zum Multiplayer</button></a>
+  </div>
+
+  <div class="dpad">
+    <button class="up" data-dir="up">▲</button>
+    <button class="left" data-dir="left">◄</button>
+    <button class="right" data-dir="right">►</button>
+    <button class="down" data-dir="down">▼</button>
+  </div>
+
+  <p class="hint">Steuerung: Pfeiltasten oder WASD · Pause: P · Start: Leertaste</p>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const bestEl = document.getElementById('best');
+    const speedEl = document.getElementById('speed');
+    const overlay = document.getElementById('overlay');
+
+    const COLS = 20;
+    const ROWS = 20;
+    const CELL = canvas.width / COLS;
+    const SWEETS = ['🍬', '🍭', '🍫', '🍩', '🧁', '🍪', '🍮', '🍡'];
+
+    let snake, dir, nextDir, food, score, alive, paused, tickMs, lastTick, timer;
+    let best = Number(localStorage.getItem('snake-best') || 0);
+    bestEl.textContent = best;
+
+    function reset() {
+      snake = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }];
+      dir = { x: 1, y: 0 };
+      nextDir = dir;
+      score = 0;
+      tickMs = 140;
+      alive = true;
+      paused = false;
+      placeFood();
+      scoreEl.textContent = score;
+      speedEl.textContent = '1';
+      overlay.style.display = 'none';
+      draw();
+    }
+
+    function placeFood() {
+      while (true) {
+        const x = Math.floor(Math.random() * COLS);
+        const y = Math.floor(Math.random() * ROWS);
+        if (!snake.some(s => s.x === x && s.y === y)) {
+          const sweet = SWEETS[Math.floor(Math.random() * SWEETS.length)];
+          food = { x, y, sweet };
+          return;
+        }
+      }
+    }
+
+    function step() {
+      if (!alive || paused) return;
+      dir = nextDir;
+      const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+
+      if (head.x < 0 || head.x >= COLS || head.y < 0 || head.y >= ROWS) return die();
+      if (snake.some((s, i) => i < snake.length - 1 && s.x === head.x && s.y === head.y)) return die();
+
+      snake.unshift(head);
+      if (head.x === food.x && head.y === food.y) {
+        score += 10;
+        scoreEl.textContent = score;
+        if (score % 50 === 0 && tickMs > 60) {
+          tickMs -= 10;
+          clearInterval(timer);
+          timer = setInterval(step, tickMs);
+          speedEl.textContent = String(Math.round((140 - tickMs) / 10) + 1);
+        }
+        placeFood();
+      } else {
+        snake.pop();
+      }
+      draw();
+    }
+
+    function die() {
+      alive = false;
+      clearInterval(timer);
+      if (score > best) {
+        best = score;
+        localStorage.setItem('snake-best', String(best));
+        bestEl.textContent = best;
+      }
+      overlay.innerHTML = `💀 Game Over<br>Punkte: <b>${score}</b><br><span style="font-size:0.9rem">Drücke Leertaste für neu</span>`;
+      overlay.style.display = 'block';
+      positionOverlay();
+    }
+
+    function positionOverlay() {
+      const rect = canvas.getBoundingClientRect();
+      const wrap = canvas.parentElement.getBoundingClientRect();
+      overlay.style.left = (rect.left - wrap.left + rect.width / 2 - overlay.offsetWidth / 2) + 'px';
+      overlay.style.top = (rect.top - wrap.top + rect.height / 2 - overlay.offsetHeight / 2) + 'px';
+    }
+
+    function draw() {
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.strokeStyle = '#27364d';
+      ctx.lineWidth = 1;
+      for (let i = 1; i < COLS; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i * CELL, 0);
+        ctx.lineTo(i * CELL, canvas.height);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, i * CELL);
+        ctx.lineTo(canvas.width, i * CELL);
+        ctx.stroke();
+      }
+
+      ctx.font = `${CELL * 0.9}px serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(food.sweet, food.x * CELL + CELL / 2, food.y * CELL + CELL / 2 + 1);
+
+      snake.forEach((s, i) => {
+        ctx.fillStyle = i === 0 ? '#22c55e' : '#16a34a';
+        const pad = 1;
+        ctx.fillRect(s.x * CELL + pad, s.y * CELL + pad, CELL - pad * 2, CELL - pad * 2);
+        if (i === 0) {
+          ctx.fillStyle = '#0f172a';
+          const eyeSize = CELL * 0.15;
+          const cx = s.x * CELL + CELL / 2;
+          const cy = s.y * CELL + CELL / 2;
+          const offX = dir.x * CELL * 0.2;
+          const offY = dir.y * CELL * 0.2;
+          const perpX = -dir.y * CELL * 0.2;
+          const perpY = dir.x * CELL * 0.2;
+          ctx.beginPath();
+          ctx.arc(cx + offX + perpX, cy + offY + perpY, eyeSize, 0, Math.PI * 2);
+          ctx.arc(cx + offX - perpX, cy + offY - perpY, eyeSize, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      });
+    }
+
+    function setDir(name) {
+      const map = {
+        up: { x: 0, y: -1 },
+        down: { x: 0, y: 1 },
+        left: { x: -1, y: 0 },
+        right: { x: 1, y: 0 },
+      };
+      const d = map[name];
+      if (!d) return;
+      if (d.x === -dir.x && d.y === -dir.y) return;
+      nextDir = d;
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (['ArrowUp', 'w', 'W'].includes(e.key)) setDir('up');
+      else if (['ArrowDown', 's', 'S'].includes(e.key)) setDir('down');
+      else if (['ArrowLeft', 'a', 'A'].includes(e.key)) setDir('left');
+      else if (['ArrowRight', 'd', 'D'].includes(e.key)) setDir('right');
+      else if (e.key === ' ') { e.preventDefault(); start(); }
+      else if (e.key === 'p' || e.key === 'P') togglePause();
+    });
+
+    document.querySelectorAll('.dpad button').forEach(b => {
+      b.onclick = () => setDir(b.dataset.dir);
+    });
+
+    let touchStart = null;
+    canvas.addEventListener('touchstart', (e) => {
+      const t = e.touches[0];
+      touchStart = { x: t.clientX, y: t.clientY };
+    });
+    canvas.addEventListener('touchmove', (e) => {
+      if (!touchStart) return;
+      const t = e.touches[0];
+      const dx = t.clientX - touchStart.x;
+      const dy = t.clientY - touchStart.y;
+      if (Math.abs(dx) < 20 && Math.abs(dy) < 20) return;
+      if (Math.abs(dx) > Math.abs(dy)) setDir(dx > 0 ? 'right' : 'left');
+      else setDir(dy > 0 ? 'down' : 'up');
+      touchStart = null;
+      e.preventDefault();
+    });
+
+    function start() {
+      if (timer) clearInterval(timer);
+      reset();
+      timer = setInterval(step, tickMs);
+    }
+
+    function togglePause() {
+      if (!alive) return;
+      paused = !paused;
+      overlay.textContent = paused ? '⏸ Pause' : '';
+      overlay.style.display = paused ? 'block' : 'none';
+      if (paused) positionOverlay();
+    }
+
+    document.getElementById('start').onclick = start;
+    document.getElementById('pause').onclick = togglePause;
+
+    reset();
+    alive = false;
+    overlay.style.display = 'block';
+    positionOverlay();
+    window.addEventListener('resize', positionOverlay);
+  </script>
+</body>
+</html>
