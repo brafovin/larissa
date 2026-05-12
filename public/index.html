@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Larissa Multiplayer</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>🎮 Larissa Multiplayer</h1>
+    <div id="me"></div>
+  </header>
+
+  <main>
+    <section id="login-view" class="view">
+      <h2>Wie heißt du?</h2>
+      <form id="login-form">
+        <input id="login-name" maxlength="20" placeholder="Dein Name" required autofocus />
+        <button type="submit">Los geht's</button>
+      </form>
+    </section>
+
+    <section id="lobby-view" class="view hidden">
+      <div class="lobby-grid">
+        <div class="panel">
+          <h2>Räume</h2>
+          <div class="row">
+            <input id="new-room-name" maxlength="30" placeholder="Raumname" />
+            <select id="new-room-mode">
+              <option value="ttt">Tic-Tac-Toe (gegeneinander)</option>
+              <option value="coop">Koop-Klick-Challenge</option>
+            </select>
+            <button id="create-room">Erstellen</button>
+          </div>
+          <ul id="rooms-list"></ul>
+        </div>
+
+        <div class="panel">
+          <h2>Lobby-Chat</h2>
+          <ul id="lobby-chat" class="chat"></ul>
+          <form id="lobby-chat-form" class="chat-form">
+            <input id="lobby-chat-input" maxlength="300" placeholder="Nachricht…" />
+            <button type="submit">Senden</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <section id="room-view" class="view hidden">
+      <div class="room-header">
+        <h2 id="room-title"></h2>
+        <button id="leave-room">Verlassen</button>
+      </div>
+      <div class="room-grid">
+        <div class="panel">
+          <h3>Spieler</h3>
+          <ul id="players-list"></ul>
+
+          <div id="ttt-area" class="hidden">
+            <h3>Tic-Tac-Toe</h3>
+            <div id="ttt-status"></div>
+            <div id="ttt-board"></div>
+            <button id="ttt-start">Neues Spiel starten</button>
+          </div>
+
+          <div id="coop-area" class="hidden">
+            <h3>Koop-Challenge</h3>
+            <div id="coop-status"></div>
+            <div class="coop-progress"><div id="coop-bar"></div></div>
+            <button id="coop-click" class="big-click">KLICK!</button>
+            <button id="coop-start">Challenge starten</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Raum-Chat</h3>
+          <ul id="room-chat" class="chat"></ul>
+          <form id="room-chat-form" class="chat-form">
+            <input id="room-chat-input" maxlength="300" placeholder="Nachricht…" />
+            <button type="submit">Senden</button>
+          </form>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="client.js"></script>
+</body>
+</html>
