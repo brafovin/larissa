@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Süßigkeiten fangen 🍭</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(180deg, #1e1b4b 0%, #0f172a 100%);
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      user-select: none;
+    }
+    h1 { margin: 0 0 8px; font-size: 1.4rem; }
+    a { color: #60a5fa; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .top {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .pill {
+      background: #1e293b;
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 0.95rem;
+      border: 1px solid #334155;
+    }
+    .pill strong { color: #fbbf24; }
+    .pill.lives strong { color: #f87171; }
+    button {
+      background: #6366f1;
+      color: #fff;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+    button:hover { background: #818cf8; }
+    button:disabled { background: #475569; cursor: not-allowed; }
+    .stage {
+      position: relative;
+      width: min(95vw, 480px);
+      height: min(75vh, 640px);
+      background: linear-gradient(180deg, #312e81 0%, #1e1b4b 60%, #0f172a 100%);
+      border: 2px solid #4338ca;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 0 60px rgba(99,102,241,0.15);
+      touch-action: none;
+    }
+    .star {
+      position: absolute;
+      width: 2px;
+      height: 2px;
+      background: #fff;
+      border-radius: 50%;
+      opacity: 0.6;
+    }
+    .item {
+      position: absolute;
+      font-size: 32px;
+      line-height: 1;
+      will-change: transform;
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4));
+      pointer-events: none;
+    }
+    .basket {
+      position: absolute;
+      bottom: 8px;
+      font-size: 48px;
+      line-height: 1;
+      transform: translateX(-50%);
+      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
+      transition: transform 0.05s linear;
+      pointer-events: none;
+    }
+    .floating {
+      position: absolute;
+      font-weight: 700;
+      pointer-events: none;
+      animation: floatUp 0.8s ease-out forwards;
+    }
+    .floating.good { color: #4ade80; text-shadow: 0 0 8px rgba(74,222,128,0.6); }
+    .floating.bad { color: #f87171; text-shadow: 0 0 8px rgba(248,113,113,0.6); }
+    @keyframes floatUp {
+      from { transform: translate(-50%, 0); opacity: 1; }
+      to { transform: translate(-50%, -40px); opacity: 0; }
+    }
+    .overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(15,23,42,0.85);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      text-align: center;
+      padding: 24px;
+      backdrop-filter: blur(4px);
+    }
+    .overlay h2 { margin: 0; font-size: 1.6rem; }
+    .overlay p { margin: 0; opacity: 0.9; max-width: 320px; line-height: 1.4; }
+    .hidden { display: none !important; }
+    .hint {
+      font-size: 0.85rem;
+      opacity: 0.7;
+      margin-top: 8px;
+    }
+    .nav { margin-bottom: 6px; }
+  </style>
+</head>
+<body>
+  <div class="nav"><a href="/">← Zur Lobby</a> · <a href="/snake.html">🐍 Snake</a></div>
+  <h1>🍭 Süßigkeiten fangen</h1>
+  <div class="top">
+    <div class="pill">Punkte: <strong id="score">0</strong></div>
+    <div class="pill">Highscore: <strong id="highscore">0</strong></div>
+    <div class="pill lives">Leben: <strong id="lives">❤️❤️❤️</strong></div>
+    <div class="pill">Level: <strong id="level">1</strong></div>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="basket" id="basket">🧺</div>
+
+    <div class="overlay" id="overlay">
+      <h2 id="overlay-title">🍭 Süßigkeiten fangen</h2>
+      <p id="overlay-text">
+        Fange die Süßigkeiten 🍬🍭🍫🍩🍪 mit dem Korb!<br>
+        Weiche Bomben 💣 aus – sie kosten ein Leben.<br>
+        ⭐ gibt Bonuspunkte!
+      </p>
+      <button id="start-btn">Spiel starten</button>
+      <div class="hint">Steuerung: Maus, Touch oder ← → Tasten</div>
+    </div>
+  </div>
+
+  <script>
+    const stage = document.getElementById('stage');
+    const basket = document.getElementById('basket');
+    const overlay = document.getElementById('overlay');
+    const overlayTitle = document.getElementById('overlay-title');
+    const overlayText = document.getElementById('overlay-text');
+    const startBtn = document.getElementById('start-btn');
+    const scoreEl = document.getElementById('score');
+    const highscoreEl = document.getElementById('highscore');
+    const livesEl = document.getElementById('lives');
+    const levelEl = document.getElementById('level');
+
+    const CANDIES = ['🍬', '🍭', '🍫', '🍩', '🍪', '🧁', '🍰'];
+    const STAR = '⭐';
+    const BOMB = '💣';
+
+    let stageW = 0, stageH = 0;
+    let basketX = 0;
+    let basketW = 60;
+    let items = [];
+    let running = false;
+    let score = 0;
+    let lives = 3;
+    let level = 1;
+    let spawnTimer = 0;
+    let spawnInterval = 900;
+    let lastT = 0;
+    let highscore = +(localStorage.getItem('catchHighscore') || 0);
+    let keyLeft = false, keyRight = false;
+
+    highscoreEl.textContent = highscore;
+
+    function fitStage() {
+      const rect = stage.getBoundingClientRect();
+      stageW = rect.width;
+      stageH = rect.height;
+      basketX = Math.min(Math.max(basketX || stageW / 2, basketW / 2), stageW - basketW / 2);
+      basket.style.left = basketX + 'px';
+    }
+
+    function makeStars() {
+      const old = stage.querySelectorAll('.star');
+      old.forEach(o => o.remove());
+      for (let i = 0; i < 30; i++) {
+        const s = document.createElement('div');
+        s.className = 'star';
+        s.style.left = Math.random() * 100 + '%';
+        s.style.top = Math.random() * 100 + '%';
+        s.style.opacity = (0.3 + Math.random() * 0.6);
+        stage.appendChild(s);
+      }
+    }
+
+    function setOverlay(title, html, btnText) {
+      overlayTitle.textContent = title;
+      overlayText.innerHTML = html;
+      startBtn.textContent = btnText;
+      overlay.classList.remove('hidden');
+    }
+
+    function hideOverlay() { overlay.classList.add('hidden'); }
+
+    function updateHUD() {
+      scoreEl.textContent = score;
+      livesEl.textContent = '❤️'.repeat(Math.max(0, lives)) || '–';
+      levelEl.textContent = level;
+    }
+
+    function floatText(x, y, text, kind) {
+      const el = document.createElement('div');
+      el.className = 'floating ' + kind;
+      el.style.left = x + 'px';
+      el.style.top = y + 'px';
+      el.textContent = text;
+      stage.appendChild(el);
+      setTimeout(() => el.remove(), 800);
+    }
+
+    function spawnItem() {
+      const r = Math.random();
+      let kind, emoji, points;
+      if (r < 0.12) { kind = 'bomb'; emoji = BOMB; points = 0; }
+      else if (r < 0.22) { kind = 'star'; emoji = STAR; points = 5; }
+      else { kind = 'candy'; emoji = CANDIES[Math.floor(Math.random() * CANDIES.length)]; points = 1; }
+
+      const el = document.createElement('div');
+      el.className = 'item';
+      el.textContent = emoji;
+      const x = 20 + Math.random() * (stageW - 40);
+      el.style.left = x + 'px';
+      el.style.top = '-40px';
+      stage.appendChild(el);
+
+      items.push({
+        el, x, y: -40,
+        vy: 120 + Math.random() * 80 + level * 18,
+        kind, points
+      });
+    }
+
+    function step(t) {
+      if (!running) return;
+      if (!lastT) lastT = t;
+      const dt = Math.min(50, t - lastT);
+      lastT = t;
+
+      if (keyLeft)  basketX -= dt * 0.5;
+      if (keyRight) basketX += dt * 0.5;
+      basketX = Math.min(Math.max(basketX, basketW / 2), stageW - basketW / 2);
+      basket.style.left = basketX + 'px';
+
+      spawnTimer += dt;
+      if (spawnTimer >= spawnInterval) {
+        spawnTimer = 0;
+        spawnItem();
+      }
+
+      const basketY = stageH - 40;
+      const catchHalf = basketW / 2;
+
+      for (let i = items.length - 1; i >= 0; i--) {
+        const it = items[i];
+        it.y += it.vy * (dt / 1000);
+        it.el.style.transform = `translateY(${it.y + 40}px)`;
+
+        if (it.y > basketY - 30 && it.y < basketY + 10 && Math.abs(it.x - basketX) < catchHalf) {
+          if (it.kind === 'bomb') {
+            lives--;
+            floatText(it.x, basketY - 40, '–1 ❤️', 'bad');
+            if (lives <= 0) { it.el.remove(); items.splice(i, 1); gameOver(); return; }
+          } else {
+            score += it.points;
+            floatText(it.x, basketY - 40, '+' + it.points, 'good');
+          }
+          it.el.remove(); items.splice(i, 1);
+          continue;
+        }
+
+        if (it.y > stageH + 40) {
+          if (it.kind === 'candy' || it.kind === 'star') {
+            lives--;
+            floatText(it.x, stageH - 40, '–1 ❤️', 'bad');
+            if (lives <= 0) { it.el.remove(); items.splice(i, 1); gameOver(); return; }
+          }
+          it.el.remove(); items.splice(i, 1);
+        }
+      }
+
+      const newLevel = 1 + Math.floor(score / 25);
+      if (newLevel !== level) {
+        level = newLevel;
+        spawnInterval = Math.max(280, 900 - (level - 1) * 80);
+      }
+
+      updateHUD();
+      requestAnimationFrame(step);
+    }
+
+    function start() {
+      items.forEach(it => it.el.remove());
+      items = [];
+      score = 0;
+      lives = 3;
+      level = 1;
+      spawnInterval = 900;
+      spawnTimer = 0;
+      lastT = 0;
+      updateHUD();
+      hideOverlay();
+      running = true;
+      requestAnimationFrame(step);
+    }
+
+    function gameOver() {
+      running = false;
+      if (score > highscore) {
+        highscore = score;
+        localStorage.setItem('catchHighscore', highscore);
+        highscoreEl.textContent = highscore;
+      }
+      setOverlay(
+        '💥 Game Over!',
+        `Du hast <strong>${score}</strong> Punkte gemacht.<br>Highscore: <strong>${highscore}</strong>`,
+        'Nochmal!'
+      );
+    }
+
+    startBtn.addEventListener('click', start);
+
+    stage.addEventListener('mousemove', e => {
+      const rect = stage.getBoundingClientRect();
+      basketX = e.clientX - rect.left;
+    });
+    stage.addEventListener('touchmove', e => {
+      e.preventDefault();
+      const rect = stage.getBoundingClientRect();
+      basketX = e.touches[0].clientX - rect.left;
+    }, { passive: false });
+    stage.addEventListener('touchstart', e => {
+      const rect = stage.getBoundingClientRect();
+      basketX = e.touches[0].clientX - rect.left;
+    });
+
+    window.addEventListener('keydown', e => {
+      if (e.key === 'ArrowLeft')  keyLeft = true;
+      if (e.key === 'ArrowRight') keyRight = true;
+      if (e.key === ' ' && !running) { e.preventDefault(); start(); }
+    });
+    window.addEventListener('keyup', e => {
+      if (e.key === 'ArrowLeft')  keyLeft = false;
+      if (e.key === 'ArrowRight') keyRight = false;
+    });
+
+    window.addEventListener('resize', fitStage);
+    fitStage();
+    makeStars();
+  </script>
+</body>
+</html>
